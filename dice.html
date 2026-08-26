@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎲 Editable Dice – Premium</title>
+    <style>
+        /* ─── Reset & Base (from user file) ─── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            padding: 20px;
+        }
+
+        /* ─── Main Container (from user file) ─── */
+        .container {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            border-radius: 40px;
+            padding: 40px 50px 50px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            max-width: 740px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        /* ─── Header ─── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #fff;
+            font-weight: 600;
+            font-size: 22px;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 span {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 12px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .result-badge {
+            background: rgba(255, 255, 255, 0.07);
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .result-badge .label {
+            font-size: 11px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.35);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .result-badge .value {
+            display: block;
+        }
+
+        /* ─── Dice 3D Scene ─── */
+        .scene {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 30px;
+            perspective: 800px;
+            perspective-origin: 50% 50%;
+        }
+
+        .dice-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .dice {
+            width: var(--dice-size, 140px);
+            height: var(--dice-size, 140px);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: rotateX(-20deg) rotateY(30deg);
+        }
+
+        .dice.rolling {
+            transition: transform 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        /* ─── Faces ─── */
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--dice-radius, 20px);
+            background: var(--dice-color, #ffffff);
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.04), 0 4px 20px rgba(0, 0, 0, 0.15);
+            backface-visibility: visible;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12%;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        /* Face positions */
+        .face-1 {
+            transform: translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+        .face-6 {
+            transform: rotateY(180deg) translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+        .face-2 {
+            transform: rotateY(90deg) translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+        .face-5 {
+            transform: rotateY(-90deg) translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+        .face-3 {
+            transform: rotateX(90deg) translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+        .face-4 {
+            transform: rotateX(-90deg) translateZ(calc(var(--dice-size, 140px) / 2));
+        }
+
+        /* ─── Dot Grid (dynamic) ─── */
+        .dot-grid {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 4%;
+            padding: 6%;
+        }
+
+        .dot-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dot {
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            background: var(--dot-color, #1a1a2e);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.3s;
+        }
+
+        .dot.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* ─── Number display ─── */
+        .face-number {
+            font-size: calc(var(--dice-size, 140px) * 0.45);
+            font-weight: 700;
+            color: var(--dot-color, #1a1a2e);
+            transition: color 0.3s;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ─── Controls ─── */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .btn {
+            padding: 12px 34px;
+            border: none;
+            border-radius: 60px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.14);
+        }
+        .btn:active {
+            transform: translateY(0px) scale(0.97);
+        }
+
+        .btn-roll {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            border: none;
+            box-shadow: 0 8px 24px rgba(108, 92, 231, 0.35);
+        }
+
+        .btn-roll:hover {
+            background: linear-gradient(135deg, #7d6ff0, #b3adff);
+            box-shadow: 0 12px 32px rgba(108, 92, 231, 0.45);
+            transform: translateY(-2px);
+        }
+
+        .btn-roll:active {
+            transform: translateY(0px) scale(0.97);
+        }
+
+        .btn-roll:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-settings {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 12px 18px;
+            font-size: 18px;
+        }
+
+        .btn-settings:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .btn-settings.active {
+            background: rgba(108, 92, 231, 0.25);
+            color: #a29bfe;
+            border-color: rgba(108, 92, 231, 0.3);
+        }
+
+        /* ─── Settings Panel ─── */
+        .settings-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 0 24px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            border: 1px solid transparent;
+        }
+
+        .settings-panel.open {
+            max-height: 900px;
+            padding: 24px;
+            border-color: rgba(255, 255, 255, 0.06);
+            margin-top: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px 30px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .setting-group label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setting-group .value-display {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Custom range */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            outline: none;
+            transition: background 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            cursor: pointer;
+            box-shadow: 0 2px 12px rgba(108, 92, 231, 0.4);
+            transition: all 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Color pickers */
+        .color-picker-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            background: transparent;
+            padding: 2px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="color"]:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 8px;
+        }
+
+        input[type="color"]::-moz-color-swatch {
+            border: none;
+            border-radius: 8px;
+        }
+
+        .color-hex {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 13px;
+            font-weight: 400;
+            font-family: monospace;
+            min-width: 60px;
+        }
+
+        /* ─── Preset buttons (D&D) ─── */
+        .preset-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 4px;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.55);
+            padding: 3px 12px;
+            border-radius: 18px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .preset-btn.active {
+            background: rgba(108, 92, 231, 0.25);
+            border-color: rgba(108, 92, 231, 0.3);
+            color: #a29bfe;
+        }
+
+        /* ─── History ─── */
+        .history {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+            min-height: 32px;
+        }
+
+        .history-item {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .history-item.latest {
+            background: rgba(108, 92, 231, 0.25);
+            color: #a29bfe;
+            border-color: rgba(108, 92, 231, 0.2);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .container {
+                padding: 24px 20px 30px;
+                border-radius: 28px;
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+
+            .scene {
+                width: 160px;
+                height: 160px;
+            }
+
+            .dice {
+                --dice-size: 120px !important;
+            }
+
+            .header h1 {
+                font-size: 18px;
+            }
+
+            .result-badge {
+                font-size: 17px;
+                padding: 6px 14px;
+            }
+
+            .btn {
+                padding: 10px 22px;
+                font-size: 14px;
+            }
+
+            .controls {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .scene {
+                width: 130px;
+                height: 130px;
+            }
+            .dice {
+                --dice-size: 100px !important;
+            }
+            .container {
+                padding: 16px 14px 22px;
+            }
+            .header h1 {
+                font-size: 15px;
+            }
+        }
+
+        /* ─── Shake animation ─── */
+        @keyframes shake {
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+            10% {
+                transform: rotate(8deg);
+            }
+            20% {
+                transform: rotate(-6deg);
+            }
+            30% {
+                transform: rotate(10deg);
+            }
+            40% {
+                transform: rotate(-8deg);
+            }
+            50% {
+                transform: rotate(6deg);
+            }
+            60% {
+                transform: rotate(-4deg);
+            }
+            70% {
+                transform: rotate(4deg);
+            }
+            80% {
+                transform: rotate(-2deg);
+            }
+            90% {
+                transform: rotate(2deg);
+            }
+        }
+
+        .dice.shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* ─── Scrollbar ─── */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                🎲 Dice
+                <span>editable</span>
+            </h1>
+            <div class="result-badge">
+                <span class="label">Result</span>
+                <span class="value" id="resultDisplay">—</span>
+            </div>
+        </div>
+
+        <!-- 3D Dice -->
+        <div class="scene">
+            <div class="dice-wrapper" id="diceWrapper">
+                <div class="dice" id="dice" style="--dice-size: 140px; --dice-radius: 20px; --dice-color: #ffffff; --dot-color: #1a1a2e;">
+                    <div class="face face-1" id="face-1"></div>
+                    <div class="face face-2" id="face-2"></div>
+                    <div class="face face-3" id="face-3"></div>
+                    <div class="face face-4" id="face-4"></div>
+                    <div class="face face-5" id="face-5"></div>
+                    <div class="face face-6" id="face-6"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn btn-roll" id="rollBtn">🎲 Roll</button>
+            <button class="btn btn-settings" id="settingsToggle" title="Settings">⚙️</button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-grid">
+                <!-- Sides (NEW) -->
+                <div class="setting-group">
+                    <label>Sides <span class="value-display" id="sidesDisplay">6</span></label>
+                    <input type="range" id="sidesSlider" min="2" max="100" value="6" step="1" />
+                    <div class="preset-group">
+                        <button class="preset-btn" data-sides="4">d4</button>
+                        <button class="preset-btn active" data-sides="6">d6</button>
+                        <button class="preset-btn" data-sides="8">d8</button>
+                        <button class="preset-btn" data-sides="10">d10</button>
+                        <button class="preset-btn" data-sides="12">d12</button>
+                        <button class="preset-btn" data-sides="20">d20</button>
+                        <button class="preset-btn" data-sides="100">d100</button>
+                    </div>
+                </div>
+
+                <!-- Dice Color -->
+                <div class="setting-group">
+                    <label>Dice Color</label>
+                    <div class="color-picker-wrap">
+                        <input type="color" id="diceColor" value="#ffffff" />
+                        <span class="color-hex" id="diceColorHex">#ffffff</span>
+                    </div>
+                </div>
+
+                <!-- Dot / Text Color -->
+                <div class="setting-group">
+                    <label>Dot / Text Color</label>
+                    <div class="color-picker-wrap">
+                        <input type="color" id="dotColor" value="#1a1a2e" />
+                        <span class="color-hex" id="dotColorHex">#1a1a2e</span>
+                    </div>
+                </div>
+
+                <!-- Size -->
+                <div class="setting-group">
+                    <label>Size <span class="value-display" id="sizeDisplay">140px</span></label>
+                    <input type="range" id="sizeSlider" min="80" max="200" value="140" step="2" />
+                </div>
+
+                <!-- Corner Radius -->
+                <div class="setting-group">
+                    <label>Corner Radius <span class="value-display" id="radiusDisplay">20px</span></label>
+                    <input type="range" id="radiusSlider" min="4" max="40" value="20" step="1" />
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="history" id="history"></div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ─── DOM refs ───
+            const dice = document.getElementById('dice');
+            const faceEls = {
+                1: document.getElementById('face-1'),
+                2: document.getElementById('face-2'),
+                3: document.getElementById('face-3'),
+                4: document.getElementById('face-4'),
+                5: document.getElementById('face-5'),
+                6: document.getElementById('face-6'),
+            };
+
+            const rollBtn = document.getElementById('rollBtn');
+            const resultDisplay = document.getElementById('resultDisplay');
+            const historyEl = document.getElementById('history');
+            const settingsToggle = document.getElementById('settingsToggle');
+            const settingsPanel = document.getElementById('settingsPanel');
+
+            const diceColorInput = document.getElementById('diceColor');
+            const dotColorInput = document.getElementById('dotColor');
+            const diceColorHex = document.getElementById('diceColorHex');
+            const dotColorHex = document.getElementById('dotColorHex');
+            const sizeSlider = document.getElementById('sizeSlider');
+            const sizeDisplay = document.getElementById('sizeDisplay');
+            const radiusSlider = document.getElementById('radiusSlider');
+            const radiusDisplay = document.getElementById('radiusDisplay');
+            const sidesSlider = document.getElementById('sidesSlider');
+            const sidesDisplay = document.getElementById('sidesDisplay');
+            const presetBtns = document.querySelectorAll('.preset-btn');
+
+            const wrapper = document.getElementById('diceWrapper');
+
+            // ─── State ───
+            let isRolling = false;
+            let history = [];
+            const MAX_HISTORY = 12;
+            let currentSides = 6;
+            let currentResult = 1;
+
+            // ─── Dot patterns (1-6) ───
+            const DOT_PATTERNS = {
+                1: [4],
+                2: [2, 6],
+                3: [2, 4, 6],
+                4: [0, 2, 6, 8],
+                5: [0, 2, 4, 6, 8],
+                6: [0, 2, 3, 5, 6, 8]
+            };
+
+            // ─── Face rotation targets (precise landing) ───
+            const faceTargets = {
+                1: { x: 0, y: 0, z: 0 },
+                2: { x: 0, y: 90, z: 0 },
+                3: { x: -90, y: 0, z: 0 },
+                4: { x: 90, y: 0, z: 0 },
+                5: { x: 0, y: -90, z: 0 },
+                6: { x: 0, y: 180, z: 0 },
+            };
+
+            // ─── Render a face (dots or number) ───
+            function renderFace(container, value, isDots) {
+                container.innerHTML = '';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+
+                if (isDots && value >= 1 && value <= 6) {
+                    const grid = document.createElement('div');
+                    grid.className = 'dot-grid';
+                    const positions = DOT_PATTERNS[value] || [];
+                    for (let i = 0; i < 9; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'dot-cell';
+                        const dot = document.createElement('div');
+                        dot.className = 'dot' + (positions.includes(i) ? ' visible' : '');
+                        dot.style.background = getComputedStyle(dice).getPropertyValue('--dot-color').trim() || '#1a1a2e';
+                        cell.appendChild(dot);
+                        grid.appendChild(cell);
+                    }
+                    container.appendChild(grid);
+                } else {
+                    const num = document.createElement('span');
+                    num.className = 'face-number';
+                    num.textContent = value;
+                    num.style.color = getComputedStyle(dice).getPropertyValue('--dot-color').trim() || '#1a1a2e';
+                    container.appendChild(num);
+                }
+            }
+
+            // ─── Update all faces ───
+            function updateFaces(result, sides) {
+                const used = new Set();
+                used.add(result);
+                const values = [result];
+
+                for (let i = 1; i < 6; i++) {
+                    let val;
+                    let attempts = 0;
+                    do {
+                        val = Math.floor(Math.random() * sides) + 1;
+                        attempts++;
+                    } while (used.has(val) && attempts < 50);
+                    used.add(val);
+                    values.push(val);
+                }
+
+                // Shuffle extras
+                const shuffled = values.slice(1);
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                const finalValues = [result, ...shuffled];
+
+                // If result <= 6, ensure it's placed on the correct face
+                // Otherwise, keep it on face-1 (front)
+                const faceOrder = [1, 2, 3, 4, 5, 6];
+                let assigned = {};
+
+                if (result <= 6) {
+                    // Place result on its corresponding face
+                    assigned[result] = result;
+                    let remaining = finalValues.slice(1);
+                    let idx = 0;
+                    for (let f of faceOrder) {
+                        if (!assigned[f]) {
+                            assigned[f] = remaining[idx % remaining.length];
+                            idx++;
+                        }
+                    }
+                } else {
+                    // Place result on face-1, random for others
+                    assigned[1] = result;
+                    let remaining = finalValues.slice(1);
+                    let idx = 0;
+                    for (let f of [2, 3, 4, 5, 6]) {
+                        assigned[f] = remaining[idx % remaining.length];
+                        idx++;
+                    }
+                }
+
+                for (let f = 1; f <= 6; f++) {
+                    const val = assigned[f];
+                    const showDots = (val >= 1 && val <= 6);
+                    renderFace(faceEls[f], val, showDots);
+                }
+
+                // Sync colors
+                const dotColor = getComputedStyle(dice).getPropertyValue('--dot-color').trim() || '#1a1a2e';
+                document.querySelectorAll('.dot').forEach(d => d.style.background = dotColor);
+                document.querySelectorAll('.face-number').forEach(el => el.style.color = dotColor);
+            }
+
+            // ─── Roll logic ───
+            function rollDice() {
+                if (isRolling) return;
+                isRolling = true;
+                rollBtn.disabled = true;
+                dice.classList.add('rolling');
+
+                const sides = currentSides;
+                const value = Math.floor(Math.random() * sides) + 1;
+                currentResult = value;
+
+                // Update faces
+                updateFaces(value, sides);
+
+                // Update display
+                resultDisplay.textContent = value;
+                addHistory(value);
+
+                // Determine rotation
+                let finalX, finalY, finalZ;
+                const extraX = (Math.floor(Math.random() * 3) + 1) * 360;
+                const extraY = (Math.floor(Math.random() * 3) + 1) * 360;
+                const extraZ = (Math.floor(Math.random() * 2)) * 360;
+
+                if (sides <= 6 && value <= 6) {
+                    const target = faceTargets[value];
+                    finalX = target.x + extraX;
+                    finalY = target.y + extraY;
+                    finalZ = target.z + extraZ;
+                } else {
+                    // Random spin for high sides
+                    const tiltX = (Math.random() - 0.5) * 6;
+                    const tiltY = (Math.random() - 0.5) * 6;
+                    finalX = tiltX + extraX;
+                    finalY = tiltY + extraY;
+                    finalZ = extraZ;
+                }
+
+                dice.style.transform = `rotateX(${finalX}deg) rotateY(${finalY}deg) rotateZ(${finalZ}deg)`;
+
+                setTimeout(() => {
+                    isRolling = false;
+                    rollBtn.disabled = false;
+                    dice.classList.remove('rolling');
+                }, 1200);
+            }
+
+            // ─── History ───
+            function addHistory(value) {
+                history.push(value);
+                if (history.length > MAX_HISTORY) history.shift();
+                renderHistory();
+            }
+
+            function renderHistory() {
+                historyEl.innerHTML = '';
+                history.forEach((val, idx) => {
+                    const el = document.createElement('span');
+                    el.className = 'history-item' + (idx === history.length - 1 ? ' latest' : '');
+                    el.textContent = val;
+                    historyEl.appendChild(el);
+                });
+            }
+
+            // ─── Set sides ───
+            function setSides(val) {
+                val = Math.min(100, Math.max(2, Math.round(val)));
+                currentSides = val;
+                sidesSlider.value = val;
+                sidesDisplay.textContent = val;
+
+                presetBtns.forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.dataset.sides) === val);
+                });
+
+                if (currentResult > val) {
+                    currentResult = 1;
+                    resultDisplay.textContent = '—';
+                }
+                const result = Math.min(currentResult, val);
+                updateFaces(result, val);
+            }
+
+            // ─── Sync colors ───
+            function syncColors() {
+                const dc = diceColorInput.value;
+                const dt = dotColorInput.value;
+                dice.style.setProperty('--dice-color', dc);
+                dice.style.setProperty('--dot-color', dt);
+                diceColorHex.textContent = dc;
+                dotColorHex.textContent = dt;
+                document.querySelectorAll('.dot').forEach(d => d.style.background = dt);
+                document.querySelectorAll('.face-number').forEach(el => el.style.color = dt);
+            }
+
+            // ─── Event listeners ───
+            sidesSlider.addEventListener('input', function() { setSides(parseInt(this.value)); });
+            presetBtns.forEach(btn => {
+                btn.addEventListener('click', function() { setSides(parseInt(this.dataset.sides)); });
+            });
+
+            diceColorInput.addEventListener('input', syncColors);
+            dotColorInput.addEventListener('input', syncColors);
+
+            sizeSlider.addEventListener('input', function() {
+                const size = parseInt(this.value);
+                dice.style.setProperty('--dice-size', size + 'px');
+                sizeDisplay.textContent = size + 'px';
+                document.querySelectorAll('.face-number').forEach(el => {
+                    el.style.fontSize = `calc(var(--dice-size, ${size}px) * 0.45)`;
+                });
+            });
+
+            radiusSlider.addEventListener('input', function() {
+                const radius = parseInt(this.value);
+                dice.style.setProperty('--dice-radius', radius + 'px');
+                radiusDisplay.textContent = radius + 'px';
+            });
+
+            settingsToggle.addEventListener('click', function() {
+                const isOpen = settingsPanel.classList.toggle('open');
+                this.classList.toggle('active', isOpen);
+                this.textContent = isOpen ? '✕' : '⚙️';
+            });
+
+            rollBtn.addEventListener('click', rollDice);
+            wrapper.addEventListener('click', rollDice);
+
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT') return;
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    rollDice();
+                }
+            });
+
+            // ─── Init ───
+            function init() {
+                setSides(6);
+                syncColors();
+                sizeDisplay.textContent = sizeSlider.value + 'px';
+                radiusDisplay.textContent = radiusSlider.value + 'px';
+                updateFaces(1, 6);
+                setTimeout(() => rollDice(), 400);
+                console.log('🎲 Premium Editable Dice loaded — click or press Space to roll!');
+            }
+
+            const resizeObserver = new ResizeObserver(() => {
+                const size = parseInt(sizeSlider.value) || 140;
+                document.querySelectorAll('.face-number').forEach(el => {
+                    el.style.fontSize = `calc(var(--dice-size, ${size}px) * 0.45)`;
+                });
+            });
+            resizeObserver.observe(dice);
+
+            init();
+        })();
+    </script>
+
+</body>
+</html>
